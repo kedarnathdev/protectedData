@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="/css/styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        /* ─── QR Modal ────────────────────────────────────────────── */
+        /* ─── Modals ──────────────────────────────────────────────── */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -35,6 +35,8 @@
             width: 90%;
             box-shadow: var(--shadow);
             position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
         .modal-close {
@@ -53,6 +55,7 @@
             color: var(--text-primary);
         }
 
+        /* ─── QR Display ──────────────────────────────────────────── */
         .qr-display {
             display: flex;
             flex-direction: column;
@@ -72,6 +75,12 @@
             font-size: 0.85rem;
             word-break: break-all;
             text-align: center;
+        }
+
+        .qr-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 4px;
         }
 
         td .serial-num {
@@ -101,6 +110,48 @@
         .admin-search input:focus {
             border-color: var(--border-focus);
             box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        /* ─── File section in edit modal ──────────────────────────── */
+        .edit-file-section {
+            margin-bottom: 20px;
+        }
+
+        .edit-file-current {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 14px;
+            background: rgba(0, 201, 167, 0.08);
+            border: 1px solid rgba(0, 201, 167, 0.2);
+            border-radius: var(--radius-sm);
+            margin-bottom: 10px;
+        }
+
+        .edit-file-current .file-name-display {
+            color: var(--success);
+            font-size: 0.85rem;
+            font-weight: 500;
+            word-break: break-word;
+            min-width: 0;
+        }
+
+        .edit-file-current .btn-remove-file {
+            flex-shrink: 0;
+            padding: 4px 10px;
+            background: var(--error);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background var(--transition);
+        }
+
+        .edit-file-current .btn-remove-file:hover {
+            background: #ff8585;
         }
     </style>
 </head>
@@ -181,7 +232,6 @@
                             <th>Serial</th>
                             <th>Short ID</th>
                             <th>Label</th>
-                            <th>Content Preview</th>
                             <th>File</th>
                             <th>Downloads</th>
                             <th>Created</th>
@@ -217,6 +267,31 @@
                 <label for="editTextContent">Text Content</label>
                 <textarea id="editTextContent" rows="5" placeholder="Protected text content..."></textarea>
             </div>
+
+            <!-- File section -->
+            <div class="edit-file-section">
+                <label
+                    style="display:block; font-size:0.85rem; font-weight:500; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
+                    Attached File
+                </label>
+                <!-- Current file (shown when file exists) -->
+                <div class="edit-file-current" id="editFileCurrent" style="display: none;">
+                    <span class="file-name-display" id="editFileNameDisplay">📎 </span>
+                    <button class="btn-remove-file" onclick="markFileForDeletion()">✕ Remove</button>
+                </div>
+                <!-- Upload new / replace -->
+                <div class="file-input-wrapper" id="editFileWrapper">
+                    <input type="file" id="editFile">
+                    <div class="file-label">
+                        <span class="icon">📎</span>
+                        <span id="editFileUploadLabel">Upload new file or replace existing</span>
+                        <br>
+                        <small style="color: var(--text-muted);">Max 50 MB · PDF, PNG, JPG, ZIP, TXT, DOCX</small>
+                    </div>
+                    <div class="file-name" id="editNewFileName" style="display: none;"></div>
+                </div>
+            </div>
+
             <div style="display:flex; gap:10px;">
                 <button class="btn btn-primary" style="flex:1;" onclick="saveEdit()">Save Changes</button>
                 <button class="btn btn-outline" style="flex:1;" onclick="closeEditModal()">Cancel</button>
@@ -232,6 +307,10 @@
             <div class="qr-display">
                 <div class="qr-box" id="qrBox"></div>
                 <div class="qr-url" id="qrUrl"></div>
+                <div class="qr-actions">
+                    <button class="btn btn-success btn-sm" id="qrDownloadBtn" onclick="downloadQr()">⬇ Download
+                        PNG</button>
+                </div>
             </div>
         </div>
     </div>
@@ -239,6 +318,8 @@
     <script>
         let authToken = '';
         let allUrls = [];
+        let deleteFileFlag = false;
+        let currentQrSerial = '';
 
         const alertEl = document.getElementById('alert');
         const loginSection = document.getElementById('loginSection');
@@ -246,6 +327,18 @@
         const loginForm = document.getElementById('loginForm');
         const loginBtn = document.getElementById('loginBtn');
         const urlTableBody = document.getElementById('urlTableBody');
+        const editFileInput = document.getElementById('editFile');
+        const editNewFileNameEl = document.getElementById('editNewFileName');
+
+        // Show selected file name in edit modal
+        editFileInput.addEventListener('change', () => {
+            if (editFileInput.files.length > 0) {
+                editNewFileNameEl.textContent = '📄 ' + editFileInput.files[0].name;
+                editNewFileNameEl.style.display = 'block';
+            } else {
+                editNewFileNameEl.style.display = 'none';
+            }
+        });
 
         // ─── Helpers ─────────────────────────────────────────────────
         function showAlert(message, type) {
@@ -339,7 +432,6 @@
             const emptyState = document.getElementById('emptyState');
             const tableWrapper = document.getElementById('tableWrapper');
 
-            // Apply filter
             const filtered = filter
                 ? allUrls.filter(u => {
                     const serial = String(u.serialNumber || '');
@@ -363,7 +455,6 @@
           <td><span class="serial-num">#${url.serialNumber || '—'}</span></td>
           <td><span class="short-id">${url.shortId}</span></td>
           <td>${url.label ? truncate(url.label, 20) : '<span style="color:var(--text-muted)">—</span>'}</td>
-          <td>${truncate(url.textContent, 35)}</td>
           <td>
             <span class="badge ${url.fileName ? 'badge-yes' : 'badge-no'}">
               ${url.fileName ? '📎 Yes' : 'No'}
@@ -373,7 +464,7 @@
           <td style="white-space:nowrap; font-size:0.8rem; color:var(--text-secondary);">${formatDate(url.createdAt)}</td>
           <td>
             <div class="actions">
-              <button class="btn btn-outline btn-sm" onclick="showQr('${url.shortId}')" title="QR Code">QR</button>
+              <button class="btn btn-outline btn-sm" onclick="showQr('${url.shortId}', ${url.serialNumber || 0})" title="QR Code">QR</button>
               <button class="btn btn-outline btn-sm" onclick="openEdit('${url._id}')">Edit</button>
               <button class="btn btn-danger btn-sm" onclick="deleteUrl('${url._id}')">Del</button>
             </div>
@@ -390,13 +481,14 @@
         }
 
         // ─── QR Modal ────────────────────────────────────────────────
-        function showQr(shortId) {
+        function showQr(shortId, serialNumber) {
             const fullUrl = `${window.location.origin}/${shortId}`;
             const qrBox = document.getElementById('qrBox');
             const qrUrl = document.getElementById('qrUrl');
 
             qrBox.innerHTML = '';
             qrUrl.textContent = fullUrl;
+            currentQrSerial = serialNumber || shortId;
 
             new QRCode(qrBox, {
                 text: fullUrl,
@@ -410,6 +502,31 @@
             document.getElementById('qrModal').classList.add('show');
         }
 
+        function downloadQr() {
+            const qrBox = document.getElementById('qrBox');
+            // qrcodejs renders either a canvas or an img
+            const canvas = qrBox.querySelector('canvas');
+            const img = qrBox.querySelector('img');
+
+            if (canvas) {
+                const link = document.createElement('a');
+                link.download = `${currentQrSerial}_qr.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } else if (img) {
+                // Fallback: draw img onto a canvas to export
+                const c = document.createElement('canvas');
+                c.width = img.naturalWidth;
+                c.height = img.naturalHeight;
+                const ctx = c.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const link = document.createElement('a');
+                link.download = `${currentQrSerial}_qr.png`;
+                link.href = c.toDataURL('image/png');
+                link.click();
+            }
+        }
+
         function closeQrModal() {
             document.getElementById('qrModal').classList.remove('show');
         }
@@ -419,14 +536,36 @@
             const url = allUrls.find(u => u._id === id);
             if (!url) return;
 
+            deleteFileFlag = false;
             document.getElementById('editId').value = id;
             document.getElementById('editLabel').value = url.label || '';
             document.getElementById('editTextContent').value = url.textContent || '';
+
+            // Reset file input
+            editFileInput.value = '';
+            editNewFileNameEl.style.display = 'none';
+
+            // Show current file if exists
+            const fileCurrent = document.getElementById('editFileCurrent');
+            if (url.fileName) {
+                document.getElementById('editFileNameDisplay').textContent = '📎 ' + url.fileName;
+                fileCurrent.style.display = 'flex';
+            } else {
+                fileCurrent.style.display = 'none';
+            }
+
             document.getElementById('editModal').classList.add('show');
+        }
+
+        function markFileForDeletion() {
+            deleteFileFlag = true;
+            document.getElementById('editFileCurrent').style.display = 'none';
+            showAlert('File marked for removal. Click Save to confirm.', 'success');
         }
 
         function closeEditModal() {
             document.getElementById('editModal').classList.remove('show');
+            deleteFileFlag = false;
         }
 
         async function saveEdit() {
@@ -439,14 +578,26 @@
                 return;
             }
 
+            // Use FormData to support file upload
+            const formData = new FormData();
+            formData.append('label', label);
+            formData.append('textContent', textContent);
+
+            if (deleteFileFlag) {
+                formData.append('deleteFile', 'true');
+            }
+
+            if (editFileInput.files.length > 0) {
+                formData.append('file', editFileInput.files[0]);
+            }
+
             try {
                 const res = await fetch(`/api/admin/urls/${id}`, {
                     method: 'PUT',
                     headers: {
-                        'Content-Type': 'application/json',
                         Authorization: `Bearer ${authToken}`,
                     },
-                    body: JSON.stringify({ label, textContent }),
+                    body: formData,
                 });
 
                 const data = await res.json();

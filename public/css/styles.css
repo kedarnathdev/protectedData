@@ -379,20 +379,29 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .download-section .file-info {
   color: var(--text-secondary);
   font-size: 0.9rem;
+  min-width: 0;
+  word-break: break-word;
 }
 
 .download-section .file-info strong {
   color: var(--success);
 }
 
+.download-section .btn {
+  flex-shrink: 0;
+}
+
 /* ─── Admin Table ───────────────────────────────────────────────── */
 .table-wrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: var(--radius);
   border: 1px solid var(--border-color);
 }
@@ -416,6 +425,7 @@ th {
   letter-spacing: 0.5px;
   font-size: 0.75rem;
   border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
 }
 
 td {
@@ -445,6 +455,7 @@ td .badge {
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 td .badge-yes {
@@ -462,6 +473,7 @@ td .badge-no {
 td .actions {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 /* ─── Inline Edit ───────────────────────────────────────────────── */
@@ -499,6 +511,8 @@ td .inline-edit:focus {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .admin-bar .admin-title {
@@ -574,6 +588,7 @@ td .inline-edit:focus {
     opacity: 0;
     transform: translateY(-8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -581,33 +596,231 @@ td .inline-edit:focus {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* ─── Responsive ────────────────────────────────────────────────── */
-@media (max-width: 640px) {
+/* ─── Responsive: Tablets (≤ 768px) ─────────────────────────────── */
+@media (max-width: 768px) {
   .container {
-    padding: 30px 16px 30px;
+    padding: 40px 16px 30px;
+  }
+
+  .container.wide {
+    max-width: 100%;
   }
 
   .card {
-    padding: 24px 20px;
+    padding: 24px 18px;
   }
 
   .header .logo {
-    font-size: 1.6rem;
+    font-size: 1.7rem;
+  }
+
+  .header .subtitle {
+    font-size: 0.85rem;
   }
 
   .stats-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .stat-card {
+    padding: 12px 8px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 1.2rem;
+  }
+
+  th,
+  td {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+  }
+}
+
+/* ─── Responsive: Mobile (≤ 480px) ──────────────────────────────── */
+@media (max-width: 480px) {
+  .container {
+    padding: 24px 12px 24px;
+  }
+
+  .card {
+    padding: 20px 14px;
+    border-radius: 10px;
+  }
+
+  .card-title {
+    font-size: 1rem;
+  }
+
+  .header {
+    margin-bottom: 24px;
+  }
+
+  .header .logo {
+    font-size: 1.5rem;
+  }
+
+  .header .subtitle {
+    font-size: 0.8rem;
+  }
+
+  /* Forms */
+  .form-group label {
+    font-size: 0.78rem;
+  }
+
+  .form-group input[type="text"],
+  .form-group input[type="password"],
+  .form-group textarea {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+
+  .form-group textarea {
+    min-height: 100px;
+  }
+
+  .file-input-wrapper {
+    padding: 18px 12px;
+  }
+
+  .file-input-wrapper .file-label .icon {
+    font-size: 1.4rem;
+  }
+
+  .file-input-wrapper .file-label {
+    font-size: 0.82rem;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 11px 18px;
+    font-size: 0.9rem;
+  }
+
+  .btn-sm {
+    padding: 5px 10px;
+    font-size: 0.75rem;
+  }
+
+  /* URL display */
+  .result-box {
+    padding: 16px;
+  }
+
+  .result-box .url-display {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .result-box .url-display input {
+    width: 100%;
+    font-size: 0.8rem;
+    padding: 10px 12px;
+  }
+
+  .result-box .url-display .btn-copy {
+    width: 100%;
+    text-align: center;
+    padding: 10px;
+  }
+
+  /* Download section */
+  .download-section {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .download-section .file-info {
+    font-size: 0.82rem;
+    text-align: center;
+  }
+
+  .download-section .btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* Content text */
+  .content-text {
+    padding: 14px;
+    font-size: 0.9rem;
+  }
+
+  /* Stats */
+  .stats-row {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .stat-card {
+    padding: 10px 6px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 1.1rem;
+  }
+
+  .stat-card .stat-label {
+    font-size: 0.65rem;
+  }
+
+  /* Admin bar */
+  .admin-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .admin-bar .admin-title {
+    font-size: 1.05rem;
+  }
+
+  /* Table */
+  th,
+  td {
+    padding: 8px 10px;
+    font-size: 0.75rem;
   }
 
   td .actions {
     flex-direction: column;
+    gap: 4px;
+  }
+
+  td .actions .btn {
+    width: 100%;
+    font-size: 0.7rem;
+    padding: 5px 8px;
+  }
+
+  /* Alerts */
+  .alert {
+    padding: 12px 14px;
+    font-size: 0.82rem;
+  }
+
+  /* Nav */
+  .nav-links {
+    margin-top: 16px;
   }
 }

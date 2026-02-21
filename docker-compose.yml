@@ -1,6 +1,6 @@
 services:
   app:
-    build: .
+    image: kedarnathdev/protecteddata:master
     container_name: shortvault
     restart: unless-stopped
     ports:
