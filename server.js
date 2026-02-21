@@ -4,7 +4,6 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const connectDB = require('./config/db');
-const { generalLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
 
@@ -12,7 +11,7 @@ const app = express();
 app.use(cors());                                  // Enable CORS for all origins
 app.use(express.json());                          // Parse JSON request bodies
 app.use(express.urlencoded({ extended: true }));  // Parse URL-encoded form data
-app.use(generalLimiter);                          // Apply general rate limit to all routes
+
 
 // ─── Static Files ────────────────────────────────────────────────────
 // Serve frontend files from the /public directory

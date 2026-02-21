@@ -5,16 +5,23 @@ const mongoose = require('mongoose');
  * Represents a password-protected short URL with optional file attachment.
  *
  * Fields:
+ *  - serialNumber:  Unique auto-incrementing numeric ID for user-facing search
  *  - shortId:       Unique nanoid-generated identifier (used in the URL path)
  *  - passwordHash:  bcrypt-hashed password required to view content
  *  - textContent:   Text displayed after password verification
  *  - fileName:      Original name of the uploaded file (null if no file)
  *  - filePath:      Server-side path to the stored file (null if no file)
- *  - label:         Admin-assigned tag for organization
+ *  - label:         User/admin-assigned tag for organization
  *  - downloadCount: Number of times the attached file has been downloaded
  */
 const urlSchema = new mongoose.Schema(
     {
+        serialNumber: {
+            type: Number,
+            required: true,
+            unique: true,
+            index: true,
+        },
         shortId: {
             type: String,
             required: true,

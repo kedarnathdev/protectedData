@@ -2,14 +2,15 @@ const path = require('path');
 
 // Allowed file extensions for uploads
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.zip', '.txt', '.docx', '.xlsx', '.csv'];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
 /**
  * Validate the POST /api/shorten request body.
  * Ensures password and textContent are present and within limits.
+ * Sanitizes optional label field.
  */
 const validateShortenInput = (req, res, next) => {
-    const { password, textContent } = req.body;
+    const { password, textContent, label } = req.body;
 
     if (!password || typeof password !== 'string' || password.trim().length === 0) {
         return res.status(400).json({ error: 'Password is required.' });
@@ -31,9 +32,15 @@ const validateShortenInput = (req, res, next) => {
         return res.status(400).json({ error: 'Text content must not exceed 10,000 characters.' });
     }
 
+    // Validate optional label
+    if (label && typeof label === 'string' && label.trim().length > 100) {
+        return res.status(400).json({ error: 'Label must not exceed 100 characters.' });
+    }
+
     // Sanitize: trim whitespace
     req.body.password = password.trim();
     req.body.textContent = textContent.trim();
+    req.body.label = (label && typeof label === 'string') ? label.trim() : '';
 
     next();
 };

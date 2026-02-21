@@ -6,7 +6,6 @@ const fs = require('fs');
 
 const Admin = require('../models/Admin');
 const Url = require('../models/Url');
-const { sensitiveLimiter } = require('../middleware/rateLimiter');
 const { validateAdminLogin } = require('../middleware/validate');
 
 // ─── JWT Auth Middleware ─────────────────────────────────────────────
@@ -29,7 +28,7 @@ const authenticateAdmin = (req, res, next) => {
 
 // ─── POST /api/admin/login ──────────────────────────────────────────
 // Authenticate admin and return JWT
-router.post('/api/admin/login', sensitiveLimiter, validateAdminLogin, async (req, res) => {
+router.post('/api/admin/login', validateAdminLogin, async (req, res) => {
     try {
         const { username, password } = req.body;
 

@@ -7,7 +7,6 @@ const { nanoid } = require('nanoid');
 const fs = require('fs');
 
 const Url = require('../models/Url');
-const { sensitiveLimiter } = require('../middleware/rateLimiter');
 const { validateShortenInput, validateVerifyInput, fileFilter, MAX_FILE_SIZE } = require('../middleware/validate');
 
 // ─── Multer Configuration ────────────────────────────────────────────
@@ -15,14 +14,12 @@ const { validateShortenInput, validateVerifyInput, fileFilter, MAX_FILE_SIZE } =
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const uploadDir = path.join(__dirname, '..', 'uploads');
-        // Ensure the uploads directory exists
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        // Random prefix + original extension to avoid collisions
         const uniqueName = `${nanoid(16)}${path.extname(file.originalname).toLowerCase()}`;
         cb(null, uniqueName);
     },
@@ -34,40 +31,44 @@ const upload = multer({
     limits: { fileSize: MAX_FILE_SIZE },
 });
 
+// ─── Helper: Generate next serial number ─────────────────────────────
+async function getNextSerialNumber() {
+    const last = await Url.findOne().sort({ serialNumber: -1 }).select('serialNumber');
+    return last ? last.serialNumber + 1 : 1001; // Start from 1001
+}
+
 // ─── POST /api/shorten ───────────────────────────────────────────────
-// Create a new short URL with password, text content, and optional file
+// Create a new short URL with password, text content, label, and optional file
 router.post(
     '/api/shorten',
-    sensitiveLimiter,
     upload.single('file'),
     validateShortenInput,
     async (req, res) => {
         try {
-            const { password, textContent } = req.body;
+            const { password, textContent, label } = req.body;
 
-            // Hash the password with 12 salt rounds
             const passwordHash = await bcrypt.hash(password, 12);
-
-            // Generate a unique short ID (8 characters)
             const shortId = nanoid(8);
+            const serialNumber = await getNextSerialNumber();
 
-            // Build the document
             const urlDoc = new Url({
+                serialNumber,
                 shortId,
                 passwordHash,
                 textContent,
+                label: label || '',
                 fileName: req.file ? req.file.originalname : null,
                 filePath: req.file ? req.file.path : null,
             });
 
             await urlDoc.save();
 
-            // Return the generated short URL
             const baseUrl = `${req.protocol}://${req.get('host')}`;
             res.status(201).json({
                 success: true,
                 shortUrl: `${baseUrl}/${shortId}`,
                 shortId,
+                serialNumber,
             });
         } catch (err) {
             console.error('Error creating short URL:', err);
@@ -76,11 +77,36 @@ router.post(
     }
 );
 
+// ─── GET /api/search ─────────────────────────────────────────────────
+// Search for a URL by serial number (returns shortId if found, requires password next)
+router.get('/api/search', async (req, res) => {
+    try {
+        const serial = parseInt(req.query.serial, 10);
+        if (!serial || isNaN(serial)) {
+            return res.status(400).json({ error: 'A valid serial number is required.' });
+        }
+
+        const urlDoc = await Url.findOne({ serialNumber: serial }).select('shortId serialNumber label');
+        if (!urlDoc) {
+            return res.status(404).json({ error: 'No URL found with that serial number.' });
+        }
+
+        res.json({
+            success: true,
+            shortId: urlDoc.shortId,
+            serialNumber: urlDoc.serialNumber,
+            label: urlDoc.label,
+        });
+    } catch (err) {
+        console.error('Error searching URL:', err);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+});
+
 // ─── POST /api/:shortId/verify ───────────────────────────────────────
 // Verify password and return the protected content
 router.post(
     '/api/:shortId/verify',
-    sensitiveLimiter,
     validateVerifyInput,
     async (req, res) => {
         try {
@@ -92,13 +118,11 @@ router.post(
                 return res.status(404).json({ error: 'Short URL not found.' });
             }
 
-            // Compare submitted password against stored hash
             const isMatch = await bcrypt.compare(password, urlDoc.passwordHash);
             if (!isMatch) {
                 return res.status(401).json({ error: 'Incorrect password.' });
             }
 
-            // Password valid — return the content
             res.json({
                 success: true,
                 textContent: urlDoc.textContent,
@@ -118,7 +142,7 @@ router.post(
 router.get('/api/:shortId/download', async (req, res) => {
     try {
         const { shortId } = req.params;
-        const { token } = req.query; // token is the plain-text password
+        const { token } = req.query;
 
         if (!token) {
             return res.status(401).json({ error: 'Authentication required.' });
@@ -129,7 +153,6 @@ router.get('/api/:shortId/download', async (req, res) => {
             return res.status(404).json({ error: 'Short URL not found.' });
         }
 
-        // Verify the password
         const isMatch = await bcrypt.compare(token, urlDoc.passwordHash);
         if (!isMatch) {
             return res.status(401).json({ error: 'Incorrect password.' });
@@ -139,11 +162,9 @@ router.get('/api/:shortId/download', async (req, res) => {
             return res.status(404).json({ error: 'No file attached to this URL.' });
         }
 
-        // Increment download count
         urlDoc.downloadCount += 1;
         await urlDoc.save();
 
-        // Send the file with the original name
         res.download(urlDoc.filePath, urlDoc.fileName);
     } catch (err) {
         console.error('Error downloading file:', err);
@@ -157,7 +178,6 @@ router.get('/:shortId', async (req, res) => {
     try {
         const { shortId } = req.params;
 
-        // Check the short URL exists
         const urlDoc = await Url.findOne({ shortId });
         if (!urlDoc) {
             return res.status(404).send(`
@@ -169,7 +189,6 @@ router.get('/:shortId', async (req, res) => {
       `);
         }
 
-        // Serve the view page (client-side JS will handle the rest)
         res.sendFile(path.join(__dirname, '..', 'public', 'view.html'));
     } catch (err) {
         console.error('Error serving short URL page:', err);
