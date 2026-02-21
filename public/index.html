@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Create password-protected short URLs with optional file attachments. Secure, fast, and simple.">
+  <title>ShortVault — Secure Short URL Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">ShortVault</div>
+      <p class="subtitle">Create password-protected short URLs with secure content</p>
+    </div>
+
+    <!-- Alert Messages -->
+    <div id="alert" class="alert"></div>
+
+    <!-- Create Form -->
+    <div class="card">
+      <h2 class="card-title">🔐 Create a Secure Link</h2>
+
+      <form id="shortenForm" enctype="multipart/form-data">
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter a strong password (min 4 chars)" required>
+        </div>
+
+        <div class="form-group">
+          <label for="textContent">Protected Content</label>
+          <textarea id="textContent" name="textContent" placeholder="This text will only be visible after password verification..." required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>File Attachment (optional)</label>
+          <div class="file-input-wrapper" id="fileWrapper">
+            <input type="file" id="file" name="file">
+            <div class="file-label">
+              <span class="icon">📎</span>
+              <span>Drop a file here or click to browse</span>
+              <br>
+              <small style="color: var(--text-muted);">Max 10 MB · PDF, PNG, JPG, ZIP, TXT, DOCX</small>
+            </div>
+            <div class="file-name" id="fileName" style="display: none;"></div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+          Generate Secure Link
+        </button>
+      </form>
+
+      <!-- Result -->
+      <div class="result-box" id="resultBox">
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 8px;">Your secure link is ready:</p>
+        <div class="url-display">
+          <input type="text" id="shortUrl" readonly>
+          <button class="btn-copy" id="copyBtn" onclick="copyUrl()">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <div class="nav-links">
+      <a href="/admin.html">Admin Panel →</a>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('shortenForm');
+    const alert = document.getElementById('alert');
+    const resultBox = document.getElementById('resultBox');
+    const shortUrlInput = document.getElementById('shortUrl');
+    const submitBtn = document.getElementById('submitBtn');
+    const fileInput = document.getElementById('file');
+    const fileNameEl = document.getElementById('fileName');
+
+    // Show selected file name
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        fileNameEl.textContent = '📄 ' + fileInput.files[0].name;
+        fileNameEl.style.display = 'block';
+      } else {
+        fileNameEl.style.display = 'none';
+      }
+    });
+
+    // Show alert helper
+    function showAlert(message, type) {
+      alert.textContent = message;
+      alert.className = `alert alert-${type} show`;
+      setTimeout(() => alert.classList.remove('show'), 5000);
+    }
+
+    // Form submission
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      resultBox.classList.remove('show');
+
+      submitBtn.innerHTML = '<span class="spinner"></span> Generating...';
+      submitBtn.disabled = true;
+
+      try {
+        const formData = new FormData(form);
+
+        const res = await fetch('/api/shorten', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showAlert(data.error || 'Something went wrong.', 'error');
+          return;
+        }
+
+        shortUrlInput.value = data.shortUrl;
+        resultBox.classList.add('show');
+        showAlert('Secure link created successfully!', 'success');
+        form.reset();
+        fileNameEl.style.display = 'none';
+      } catch (err) {
+        showAlert('Network error. Please try again.', 'error');
+      } finally {
+        submitBtn.innerHTML = 'Generate Secure Link';
+        submitBtn.disabled = false;
+      }
+    });
+
+    // Copy URL to clipboard
+    function copyUrl() {
+      shortUrlInput.select();
+      navigator.clipboard.writeText(shortUrlInput.value);
+      document.getElementById('copyBtn').textContent = 'Copied!';
+      setTimeout(() => {
+        document.getElementById('copyBtn').textContent = 'Copy';
+      }, 2000);
+    }
+  </script>
+
+</body>
+</html>

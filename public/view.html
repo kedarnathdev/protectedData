@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Access password-protected content through ShortVault secure links.">
+    <title>ShortVault — Verify Access</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">ShortVault</div>
+            <p class="subtitle">This link is password-protected</p>
+        </div>
+
+        <!-- Alert -->
+        <div id="alert" class="alert"></div>
+
+        <!-- Password Form -->
+        <div class="card" id="passwordCard">
+            <h2 class="card-title">🔑 Enter Password</h2>
+            <form id="verifyForm">
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password"
+                        placeholder="Enter the password to unlock this content" required autofocus>
+                </div>
+                <button type="submit" class="btn btn-primary" id="verifyBtn">
+                    Unlock Content
+                </button>
+            </form>
+        </div>
+
+        <!-- Content Area (shown after successful verification) -->
+        <div class="content-area" id="contentArea">
+            <div class="card">
+                <h2 class="card-title">✅ Content Unlocked</h2>
+
+                <div class="form-group">
+                    <label>Protected Text</label>
+                    <div class="content-text" id="textContent"></div>
+                </div>
+
+                <div class="download-section" id="downloadSection" style="display: none;">
+                    <div class="file-info">
+                        <span>📎 Attached file: <strong id="attachedFileName"></strong></span>
+                    </div>
+                    <a class="btn btn-success btn-sm" id="downloadBtn" href="#" download>
+                        ⬇ Download
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nav -->
+        <div class="nav-links">
+            <a href="/">← Create a new link</a>
+        </div>
+    </div>
+
+    <script>
+        // Extract the shortId from the current URL path
+        const pathParts = window.location.pathname.split('/');
+        const shortId = pathParts[pathParts.length - 1];
+
+        const verifyForm = document.getElementById('verifyForm');
+        const alertEl = document.getElementById('alert');
+        const passwordCard = document.getElementById('passwordCard');
+        const contentArea = document.getElementById('contentArea');
+        const textContentEl = document.getElementById('textContent');
+        const downloadSection = document.getElementById('downloadSection');
+        const attachedFileName = document.getElementById('attachedFileName');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const verifyBtn = document.getElementById('verifyBtn');
+
+        let verifiedPassword = '';
+
+        function showAlert(message, type) {
+            alertEl.textContent = message;
+            alertEl.className = `alert alert-${type} show`;
+            setTimeout(() => alertEl.classList.remove('show'), 5000);
+        }
+
+        verifyForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const password = document.getElementById('password').value.trim();
+            if (!password) return;
+
+            verifyBtn.innerHTML = '<span class="spinner"></span> Verifying...';
+            verifyBtn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/${shortId}/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password }),
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showAlert(data.error || 'Verification failed.', 'error');
+                    return;
+                }
+
+                // Password correct — show content
+                verifiedPassword = password;
+                passwordCard.style.display = 'none';
+                contentArea.classList.add('show');
+                textContentEl.textContent = data.textContent;
+
+                // Show download button if file exists
+                if (data.hasFile) {
+                    attachedFileName.textContent = data.fileName;
+                    downloadBtn.href = data.downloadUrl;
+                    downloadSection.style.display = 'flex';
+                }
+
+            } catch (err) {
+                showAlert('Network error. Please try again.', 'error');
+            } finally {
+                verifyBtn.innerHTML = 'Unlock Content';
+                verifyBtn.disabled = false;
+            }
+        });
+    </script>
+
+</body>
+
+</html>
