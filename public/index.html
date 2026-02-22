@@ -276,10 +276,16 @@
                 shortUrlInput.value = data.shortUrl;
                 document.getElementById('serialBadge').textContent = `Serial #${data.serialNumber}`;
 
-                // Generate QR code
+                // Generate QR code with serial number below
                 const qrWrapper = document.getElementById('qrWrapper');
                 qrWrapper.innerHTML = '';
-                new QRCode(qrWrapper, {
+
+                // Hidden temp container for qrcodejs to render into
+                const tempDiv = document.createElement('div');
+                tempDiv.style.display = 'none';
+                document.body.appendChild(tempDiv);
+
+                new QRCode(tempDiv, {
                     text: data.shortUrl,
                     width: 180,
                     height: 180,
@@ -288,10 +294,51 @@
                     correctLevel: QRCode.CorrectLevel.M,
                 });
 
+                // Wait for qrcodejs to render, then compose combined image
+                setTimeout(() => {
+                    const qrCanvas = tempDiv.querySelector('canvas');
+                    const qrImg = tempDiv.querySelector('img');
+                    const source = qrCanvas || qrImg;
+                    if (!source) { document.body.removeChild(tempDiv); return; }
+
+                    const serialText = `${data.serialNumber}`;
+                    const padding = 20;
+                    const textHeight = 36;
+                    const qrSize = 180;
+
+                    const combined = document.createElement('canvas');
+                    combined.width = qrSize + padding * 2;
+                    combined.height = qrSize + padding * 2 + textHeight;
+                    const ctx = combined.getContext('2d');
+
+                    // White background
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, combined.width, combined.height);
+
+                    // Draw QR
+                    ctx.drawImage(source, padding, padding, qrSize, qrSize);
+
+                    // Draw serial number text
+                    ctx.fillStyle = '#1a1a2e';
+                    ctx.font = 'bold 18px "Inter", "Segoe UI", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(serialText, combined.width / 2, qrSize + padding + textHeight - 8);
+
+                    // Replace wrapper content with the combined canvas
+                    const finalImg = document.createElement('img');
+                    finalImg.src = combined.toDataURL('image/png');
+                    finalImg.style.borderRadius = '4px';
+                    finalImg.style.maxWidth = '100%';
+                    qrWrapper.appendChild(finalImg);
+
+                    document.body.removeChild(tempDiv);
+                }, 100);
+
                 resultBox.classList.add('show');
                 showAlert(alertEl, 'Secure link created successfully!', 'success');
                 form.reset();
                 fileNameEl.style.display = 'none';
+
             } catch (err) {
                 showAlert(alertEl, 'Network error. Please try again.', 'error');
             } finally {

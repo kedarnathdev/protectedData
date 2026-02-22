@@ -481,6 +481,8 @@
         }
 
         // ─── QR Modal ────────────────────────────────────────────────
+        let combinedQrCanvas = null;
+
         function showQr(shortId, serialNumber) {
             const fullUrl = `${window.location.origin}/${shortId}`;
             const qrBox = document.getElementById('qrBox');
@@ -490,7 +492,12 @@
             qrUrl.textContent = fullUrl;
             currentQrSerial = serialNumber || shortId;
 
-            new QRCode(qrBox, {
+            // Hidden temp container for qrcodejs
+            const tempDiv = document.createElement('div');
+            tempDiv.style.display = 'none';
+            document.body.appendChild(tempDiv);
+
+            new QRCode(tempDiv, {
                 text: fullUrl,
                 width: 200,
                 height: 200,
@@ -500,35 +507,64 @@
             });
 
             document.getElementById('qrModal').classList.add('show');
+
+            // Wait for render, then compose combined image
+            setTimeout(() => {
+                const qrCanvas = tempDiv.querySelector('canvas');
+                const qrImg = tempDiv.querySelector('img');
+                const source = qrCanvas || qrImg;
+                if (!source) { document.body.removeChild(tempDiv); return; }
+
+                const serialText = `${currentQrSerial}`;
+                const padding = 20;
+                const textHeight = 36;
+                const qrSize = 200;
+
+                const combined = document.createElement('canvas');
+                combined.width = qrSize + padding * 2;
+                combined.height = qrSize + padding * 2 + textHeight;
+                const ctx = combined.getContext('2d');
+
+                // White background
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, combined.width, combined.height);
+
+                // Draw QR
+                ctx.drawImage(source, padding, padding, qrSize, qrSize);
+
+                // Draw serial number text
+                ctx.fillStyle = '#1a1a2e';
+                ctx.font = 'bold 20px "Inter", "Segoe UI", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(serialText, combined.width / 2, qrSize + padding + textHeight - 8);
+
+                // Store for download
+                combinedQrCanvas = combined;
+
+                // Show combined image in modal
+                qrBox.innerHTML = '';
+                const finalImg = document.createElement('img');
+                finalImg.src = combined.toDataURL('image/png');
+                finalImg.style.borderRadius = '4px';
+                finalImg.style.maxWidth = '100%';
+                qrBox.appendChild(finalImg);
+
+                document.body.removeChild(tempDiv);
+            }, 100);
         }
 
         function downloadQr() {
-            const qrBox = document.getElementById('qrBox');
-            // qrcodejs renders either a canvas or an img
-            const canvas = qrBox.querySelector('canvas');
-            const img = qrBox.querySelector('img');
-
-            if (canvas) {
+            if (combinedQrCanvas) {
                 const link = document.createElement('a');
                 link.download = `${currentQrSerial}_qr.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            } else if (img) {
-                // Fallback: draw img onto a canvas to export
-                const c = document.createElement('canvas');
-                c.width = img.naturalWidth;
-                c.height = img.naturalHeight;
-                const ctx = c.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                const link = document.createElement('a');
-                link.download = `${currentQrSerial}_qr.png`;
-                link.href = c.toDataURL('image/png');
+                link.href = combinedQrCanvas.toDataURL('image/png');
                 link.click();
             }
         }
 
         function closeQrModal() {
             document.getElementById('qrModal').classList.remove('show');
+            combinedQrCanvas = null;
         }
 
         // ─── Edit Modal ──────────────────────────────────────────────
