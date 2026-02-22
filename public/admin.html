@@ -31,7 +31,7 @@
             border: 1px solid var(--border-color);
             border-radius: var(--radius);
             padding: 32px;
-            max-width: 480px;
+            max-width: 520px;
             width: 90%;
             box-shadow: var(--shadow);
             position: relative;
@@ -153,6 +153,84 @@
         .edit-file-current .btn-remove-file:hover {
             background: #ff8585;
         }
+
+        /* ─── Create result ───────────────────────────────────────── */
+        .create-result-box {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(108, 92, 231, 0.06);
+            border: 1px solid rgba(108, 92, 231, 0.2);
+            border-radius: var(--radius-sm);
+            animation: slideIn 0.3s ease;
+        }
+
+        .create-result-box.show {
+            display: block;
+        }
+
+        .create-result-box .url-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .create-result-box .url-display input {
+            flex: 1;
+            padding: 10px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            outline: none;
+        }
+
+        .create-result-box .url-display .btn-copy {
+            padding: 10px 16px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+
+        .create-result-box .url-display .btn-copy:hover {
+            background: var(--accent-hover);
+        }
+
+        .serial-badge {
+            display: inline-block;
+            background: rgba(108, 92, 231, 0.12);
+            color: var(--accent);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            margin-top: 8px;
+        }
+
+        .qr-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-top: 16px;
+            padding: 20px;
+            background: #fff;
+            border-radius: var(--radius-sm);
+        }
+
+        .qr-wrapper img {
+            border-radius: 4px;
+        }
     </style>
 </head>
 
@@ -199,7 +277,10 @@
                     <span class="admin-title">Dashboard</span>
                     <span class="admin-user" id="adminUser"></span>
                 </div>
-                <button class="btn btn-outline btn-sm" onclick="logout()">Logout</button>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn btn-success btn-sm" onclick="openCreateModal()">+ Create New Link</button>
+                    <button class="btn btn-outline btn-sm" onclick="logout()">Logout</button>
+                </div>
             </div>
 
             <!-- Stats -->
@@ -253,6 +334,64 @@
         </div>
     </div>
 
+    <!-- ─── Create Modal ────────────────────────────────────────────── -->
+    <div class="modal-overlay" id="createModal">
+        <div class="modal-content" style="max-width: 540px;">
+            <button class="modal-close" onclick="closeCreateModal()">✕</button>
+            <h2 class="card-title">🔐 Create a Secure Link</h2>
+
+            <form id="createForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="createPassword">Password</label>
+                    <input type="password" id="createPassword" name="password"
+                        placeholder="Enter a strong password (min 4 chars)" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="createLabel">Label (optional)</label>
+                    <input type="text" id="createLabel" name="label" placeholder="e.g., Client Proposal, Meeting Notes"
+                        maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label for="createTextContent">Protected Content</label>
+                    <textarea id="createTextContent" name="textContent"
+                        placeholder="This text will only be visible after password verification..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>File Attachment (optional)</label>
+                    <div class="file-input-wrapper" id="createFileWrapper">
+                        <input type="file" id="createFile" name="file">
+                        <div class="file-label">
+                            <span class="icon">📎</span>
+                            <span>Drop a file here or click to browse</span>
+                            <br>
+                            <small style="color: var(--text-muted);">Max 50 MB · PDF, PNG, JPG, ZIP, TXT, DOCX</small>
+                        </div>
+                        <div class="file-name" id="createFileName" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="createSubmitBtn">
+                    Generate Secure Link
+                </button>
+            </form>
+
+            <!-- Result (shown after creation) -->
+            <div class="create-result-box" id="createResultBox">
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 4px;">Your secure link is
+                    ready:</p>
+                <span class="serial-badge" id="createSerialBadge"></span>
+                <div class="url-display" style="margin-top: 10px;">
+                    <input type="text" id="createShortUrl" readonly>
+                    <button class="btn-copy" id="createCopyBtn" onclick="copyCreatedUrl()">Copy</button>
+                </div>
+                <div class="qr-wrapper" id="createQrWrapper"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- ─── Edit Modal ──────────────────────────────────────────────── -->
     <div class="modal-overlay" id="editModal">
         <div class="modal-content">
@@ -274,12 +413,10 @@
                     style="display:block; font-size:0.85rem; font-weight:500; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
                     Attached File
                 </label>
-                <!-- Current file (shown when file exists) -->
                 <div class="edit-file-current" id="editFileCurrent" style="display: none;">
                     <span class="file-name-display" id="editFileNameDisplay">📎 </span>
                     <button class="btn-remove-file" onclick="markFileForDeletion()">✕ Remove</button>
                 </div>
-                <!-- Upload new / replace -->
                 <div class="file-input-wrapper" id="editFileWrapper">
                     <input type="file" id="editFile">
                     <div class="file-label">
@@ -320,6 +457,7 @@
         let allUrls = [];
         let deleteFileFlag = false;
         let currentQrSerial = '';
+        let combinedQrCanvas = null;
 
         const alertEl = document.getElementById('alert');
         const loginSection = document.getElementById('loginSection');
@@ -329,6 +467,8 @@
         const urlTableBody = document.getElementById('urlTableBody');
         const editFileInput = document.getElementById('editFile');
         const editNewFileNameEl = document.getElementById('editNewFileName');
+        const createFileInput = document.getElementById('createFile');
+        const createFileNameEl = document.getElementById('createFileName');
 
         // Show selected file name in edit modal
         editFileInput.addEventListener('change', () => {
@@ -337,6 +477,16 @@
                 editNewFileNameEl.style.display = 'block';
             } else {
                 editNewFileNameEl.style.display = 'none';
+            }
+        });
+
+        // Show selected file name in create modal
+        createFileInput.addEventListener('change', () => {
+            if (createFileInput.files.length > 0) {
+                createFileNameEl.textContent = '📄 ' + createFileInput.files[0].name;
+                createFileNameEl.style.display = 'block';
+            } else {
+                createFileNameEl.style.display = 'none';
             }
         });
 
@@ -480,9 +630,116 @@
             document.getElementById('statDownloads').textContent = allUrls.reduce((sum, u) => sum + (u.downloadCount || 0), 0);
         }
 
-        // ─── QR Modal ────────────────────────────────────────────────
-        let combinedQrCanvas = null;
+        // ─── Create Modal ────────────────────────────────────────────
+        function openCreateModal() {
+            document.getElementById('createForm').reset();
+            createFileNameEl.style.display = 'none';
+            document.getElementById('createResultBox').classList.remove('show');
+            document.getElementById('createModal').classList.add('show');
+        }
 
+        function closeCreateModal() {
+            document.getElementById('createModal').classList.remove('show');
+        }
+
+        const createForm = document.getElementById('createForm');
+        const createSubmitBtn = document.getElementById('createSubmitBtn');
+
+        createForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            createSubmitBtn.innerHTML = '<span class="spinner"></span> Generating...';
+            createSubmitBtn.disabled = true;
+
+            try {
+                const formData = new FormData(createForm);
+
+                const res = await fetch('/api/shorten', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showAlert(data.error || 'Something went wrong.', 'error');
+                    return;
+                }
+
+                document.getElementById('createShortUrl').value = data.shortUrl;
+                document.getElementById('createSerialBadge').textContent = `Serial #${data.serialNumber}`;
+
+                // Generate QR code with serial number
+                const qrWrapper = document.getElementById('createQrWrapper');
+                qrWrapper.innerHTML = '';
+
+                const tempDiv = document.createElement('div');
+                tempDiv.style.display = 'none';
+                document.body.appendChild(tempDiv);
+
+                new QRCode(tempDiv, {
+                    text: data.shortUrl,
+                    width: 180,
+                    height: 180,
+                    colorDark: '#1a1a2e',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M,
+                });
+
+                setTimeout(() => {
+                    const source = tempDiv.querySelector('canvas') || tempDiv.querySelector('img');
+                    if (!source) { document.body.removeChild(tempDiv); return; }
+
+                    const serialText = `${data.serialNumber}`;
+                    const padding = 20;
+                    const textHeight = 36;
+                    const qrSize = 180;
+
+                    const combined = document.createElement('canvas');
+                    combined.width = qrSize + padding * 2;
+                    combined.height = qrSize + padding * 2 + textHeight;
+                    const ctx = combined.getContext('2d');
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, combined.width, combined.height);
+                    ctx.drawImage(source, padding, padding, qrSize, qrSize);
+                    ctx.fillStyle = '#1a1a2e';
+                    ctx.font = 'bold 18px "Inter", "Segoe UI", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(serialText, combined.width / 2, qrSize + padding + textHeight - 8);
+
+                    const finalImg = document.createElement('img');
+                    finalImg.src = combined.toDataURL('image/png');
+                    finalImg.style.borderRadius = '4px';
+                    finalImg.style.maxWidth = '100%';
+                    qrWrapper.appendChild(finalImg);
+
+                    document.body.removeChild(tempDiv);
+                }, 100);
+
+                document.getElementById('createResultBox').classList.add('show');
+                showAlert('Secure link created successfully!', 'success');
+                createForm.reset();
+                createFileNameEl.style.display = 'none';
+                loadUrls(); // Refresh table
+            } catch (err) {
+                showAlert('Network error. Please try again.', 'error');
+            } finally {
+                createSubmitBtn.innerHTML = 'Generate Secure Link';
+                createSubmitBtn.disabled = false;
+            }
+        });
+
+        function copyCreatedUrl() {
+            const input = document.getElementById('createShortUrl');
+            input.select();
+            navigator.clipboard.writeText(input.value);
+            const btn = document.getElementById('createCopyBtn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+        }
+
+        // ─── QR Modal ────────────────────────────────────────────────
         function showQr(shortId, serialNumber) {
             const fullUrl = `${window.location.origin}/${shortId}`;
             const qrBox = document.getElementById('qrBox');
@@ -492,7 +749,6 @@
             qrUrl.textContent = fullUrl;
             currentQrSerial = serialNumber || shortId;
 
-            // Hidden temp container for qrcodejs
             const tempDiv = document.createElement('div');
             tempDiv.style.display = 'none';
             document.body.appendChild(tempDiv);
@@ -508,11 +764,8 @@
 
             document.getElementById('qrModal').classList.add('show');
 
-            // Wait for render, then compose combined image
             setTimeout(() => {
-                const qrCanvas = tempDiv.querySelector('canvas');
-                const qrImg = tempDiv.querySelector('img');
-                const source = qrCanvas || qrImg;
+                const source = tempDiv.querySelector('canvas') || tempDiv.querySelector('img');
                 if (!source) { document.body.removeChild(tempDiv); return; }
 
                 const serialText = `${currentQrSerial}`;
@@ -525,23 +778,16 @@
                 combined.height = qrSize + padding * 2 + textHeight;
                 const ctx = combined.getContext('2d');
 
-                // White background
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, combined.width, combined.height);
-
-                // Draw QR
                 ctx.drawImage(source, padding, padding, qrSize, qrSize);
-
-                // Draw serial number text
                 ctx.fillStyle = '#1a1a2e';
                 ctx.font = 'bold 20px "Inter", "Segoe UI", sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(serialText, combined.width / 2, qrSize + padding + textHeight - 8);
 
-                // Store for download
                 combinedQrCanvas = combined;
 
-                // Show combined image in modal
                 qrBox.innerHTML = '';
                 const finalImg = document.createElement('img');
                 finalImg.src = combined.toDataURL('image/png');
@@ -577,11 +823,9 @@
             document.getElementById('editLabel').value = url.label || '';
             document.getElementById('editTextContent').value = url.textContent || '';
 
-            // Reset file input
             editFileInput.value = '';
             editNewFileNameEl.style.display = 'none';
 
-            // Show current file if exists
             const fileCurrent = document.getElementById('editFileCurrent');
             if (url.fileName) {
                 document.getElementById('editFileNameDisplay').textContent = '📎 ' + url.fileName;
@@ -614,7 +858,6 @@
                 return;
             }
 
-            // Use FormData to support file upload
             const formData = new FormData();
             formData.append('label', label);
             formData.append('textContent', textContent);
@@ -684,6 +927,9 @@
         }
 
         // Close modals on overlay click
+        document.getElementById('createModal').addEventListener('click', (e) => {
+            if (e.target.id === 'createModal') closeCreateModal();
+        });
         document.getElementById('editModal').addEventListener('click', (e) => {
             if (e.target.id === 'editModal') closeEditModal();
         });
