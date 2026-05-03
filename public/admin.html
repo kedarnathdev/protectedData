@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script type="module" src="/js/firebase-config.js"></script>
     <style>
         /* ─── Modals ──────────────────────────────────────────────── */
         .modal-overlay {
@@ -231,6 +232,44 @@
         .qr-wrapper img {
             border-radius: 4px;
         }
+
+        /* ─── Create Account Modal Extras ─────────────────────────── */
+        .password-strength {
+            height: 3px;
+            border-radius: 2px;
+            margin-top: 6px;
+            background: var(--border-color);
+            overflow: hidden;
+        }
+
+        .password-strength .bar {
+            height: 100%;
+            width: 0;
+            border-radius: 2px;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+
+        .strength-weak .bar { width: 33%; background: var(--error); }
+        .strength-medium .bar { width: 66%; background: var(--warning); }
+        .strength-strong .bar { width: 100%; background: var(--success); }
+
+        .form-group input[type="email"] {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color var(--transition), box-shadow var(--transition);
+        }
+
+        .form-group input[type="email"]:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
     </style>
 </head>
 
@@ -279,6 +318,7 @@
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <button class="btn btn-success btn-sm" onclick="openCreateModal()">+ Create New Link</button>
+                    <button class="btn btn-primary btn-sm" onclick="openRegisterModal()">+ Create Account</button>
                     <button class="btn btn-outline btn-sm" onclick="logout()">Logout</button>
                 </div>
             </div>
@@ -451,6 +491,113 @@
             </div>
         </div>
     </div>
+
+    <!-- ─── Create Account Modal ──────────────────────────────────────── -->
+    <div class="modal-overlay" id="registerModal">
+        <div class="modal-content" style="max-width: 460px;">
+            <button class="modal-close" onclick="closeRegisterModal()">✕</button>
+            <h2 class="card-title">👤 Create New Account</h2>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 20px; line-height: 1.5;">
+                Create a new user account. A verification email will be sent to the user.
+            </p>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="regEmail">Email</label>
+                    <input type="email" id="regEmail" name="email" placeholder="user@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="regPassword">Password</label>
+                    <input type="password" id="regPassword" name="password" placeholder="Min 6 characters" required minlength="6">
+                    <div class="password-strength" id="passwordStrength">
+                        <div class="bar"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="regConfirmPassword">Confirm Password</label>
+                    <input type="password" id="regConfirmPassword" name="confirmPassword"
+                        placeholder="Re-enter the password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" id="registerBtn">Create Account</button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth } from '/js/firebase-config.js';
+        import {
+            createUserWithEmailAndPassword,
+            sendEmailVerification,
+        } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+        // ─── Register Modal ──────────────────────────────────────────
+        window.openRegisterModal = function() {
+            document.getElementById('registerForm').reset();
+            document.getElementById('passwordStrength').className = 'password-strength';
+            document.getElementById('registerModal').classList.add('show');
+        };
+
+        window.closeRegisterModal = function() {
+            document.getElementById('registerModal').classList.remove('show');
+        };
+
+        // Password strength indicator
+        document.getElementById('regPassword').addEventListener('input', (e) => {
+            const el = document.getElementById('passwordStrength');
+            const value = e.target.value;
+            el.className = 'password-strength';
+            if (value.length === 0) return;
+            if (value.length < 6) el.classList.add('strength-weak');
+            else if (value.length < 10 || !/[A-Z]/.test(value) || !/[0-9]/.test(value)) el.classList.add('strength-medium');
+            else el.classList.add('strength-strong');
+        });
+
+        // Firebase error mapping for registration
+        function mapFirebaseError(code) {
+            const map = {
+                'auth/email-already-in-use': 'An account with this email already exists.',
+                'auth/invalid-email': 'Please enter a valid email address.',
+                'auth/weak-password': 'Password is too weak. Use at least 6 characters.',
+                'auth/network-request-failed': 'Network error. Please check your connection.',
+            };
+            return map[code] || 'An error occurred. Please try again.';
+        }
+
+        // Register form handler
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const confirm = document.getElementById('regConfirmPassword').value;
+            const btn = document.getElementById('registerBtn');
+
+            if (password !== confirm) {
+                showAlert('Passwords do not match.', 'error');
+                return;
+            }
+
+            btn.innerHTML = '<span class="spinner"></span> Creating...';
+            btn.disabled = true;
+
+            try {
+                const cred = await createUserWithEmailAndPassword(auth, email, password);
+                await sendEmailVerification(cred.user);
+
+                showAlert(`Account created for ${email}! Verification email sent.`, 'success');
+                closeRegisterModal();
+            } catch (err) {
+                showAlert(mapFirebaseError(err.code), 'error');
+            } finally {
+                btn.innerHTML = 'Create Account';
+                btn.disabled = false;
+            }
+        });
+
+        // Close on overlay click
+        document.getElementById('registerModal').addEventListener('click', (e) => {
+            if (e.target.id === 'registerModal') closeRegisterModal();
+        });
+    </script>
 
     <script>
         let authToken = '';
