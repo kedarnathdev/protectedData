@@ -18,6 +18,8 @@ app.use(express.urlencoded({ extended: true }));  // Parse URL-encoded form data
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Routes ──────────────────────────────────────────────────────────
+// User auth routes must be mounted first for /api/user/* endpoints
+app.use('/', require('./routes/user'));
 // Admin routes must be mounted BEFORE URL routes to prevent /:shortId
 // from matching /admin.html or /api/admin/* paths
 app.use('/', require('./routes/admin'));

@@ -656,6 +656,9 @@
 
                 const res = await fetch('/api/shorten', {
                     method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                    },
                     body: formData,
                 });
 

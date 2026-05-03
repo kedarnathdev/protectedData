@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Access password-protected short URLs by serial number. Secure, fast, and simple.">
+    <title>Fly Nexus LLP — Secure Short URL Access</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .search-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-row input {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color var(--transition), box-shadow var(--transition);
+        }
+
+        .search-row input:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .search-row button {
+            padding: 12px 20px;
+            white-space: nowrap;
+        }
+
+        .user-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 12px 18px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            animation: slideIn 0.3s ease;
+        }
+
+        .user-bar .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+        }
+
+        .user-bar .user-info .user-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--success));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #fff;
+            text-transform: uppercase;
+        }
+
+        .user-bar .user-email {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        .btn-logout {
+            padding: 6px 14px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .btn-logout:hover {
+            border-color: var(--error);
+            color: var(--error);
+            background: rgba(255, 107, 107, 0.06);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">Fly Nexus LLP</div>
+            <p class="subtitle">Access password-protected content securely</p>
+        </div>
+
+        <!-- User Bar -->
+        <div class="user-bar" id="userBar">
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar"></div>
+                <span class="user-email" id="userEmail"></span>
+            </div>
+            <button class="btn-logout" onclick="logout()">Sign Out</button>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alert" class="alert"></div>
+
+        <!-- ─── Search Section ───────────────────────────────────── -->
+        <div class="card">
+            <h2 class="card-title">🔍 Find by Serial Number</h2>
+            <div class="search-row">
+                <input type="number" id="searchSerial" placeholder="Enter serial number (e.g., 1001)" min="1">
+                <button class="btn btn-primary" style="width:auto;" id="searchBtn" onclick="searchUrl()">Go →</button>
+            </div>
+        </div>
+
+        <!-- Nav -->
+        <div class="nav-links">
+            <a href="/admin.html">Admin Panel →</a>
+        </div>
+    </div>
+
+    <script>
+        const alertEl = document.getElementById('alert');
+
+        function showAlert(message, type) {
+            alertEl.textContent = message;
+            alertEl.className = `alert alert-${type} show`;
+            setTimeout(() => alertEl.classList.remove('show'), 5000);
+        }
+
+        // ─── Auth Guard ─────────────────────────────────────────────
+        function getToken() {
+            return localStorage.getItem('userToken');
+        }
+
+        (function () {
+            const token = getToken();
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            const email = localStorage.getItem('userEmail') || 'User';
+            document.getElementById('userEmail').textContent = email;
+            document.getElementById('userAvatar').textContent = email.charAt(0).toUpperCase();
+        })();
+
+        function logout() {
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('userEmail');
+            window.location.href = '/login.html';
+        }
+
+        // ─── Search — direct redirect ───────────────────────────────
+        async function searchUrl() {
+            const serial = document.getElementById('searchSerial').value.trim();
+
+            if (!serial) {
+                showAlert('Please enter a serial number.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('searchBtn');
+            btn.innerHTML = '<span class="spinner"></span>';
+            btn.disabled = true;
+
+            try {
+                const token = getToken();
+                const res = await fetch(`/api/search?serial=${serial}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+
+                if (res.status === 401) {
+                    showAlert('Session expired. Please log in again.', 'error');
+                    setTimeout(() => logout(), 1500);
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showAlert(data.error || 'Not found.', 'error');
+                    return;
+                }
+
+                // Redirect directly to the short URL (password prompt is on that page)
+                window.location.href = `/${data.shortId}`;
+            } catch (err) {
+                showAlert('Network error.', 'error');
+            } finally {
+                btn.innerHTML = 'Go →';
+                btn.disabled = false;
+            }
+        }
+
+        // Enter key in search field
+        document.getElementById('searchSerial').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); searchUrl(); }
+        });
+    </script>
+
+</body>
+
+</html>

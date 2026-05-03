@@ -8,6 +8,7 @@ const fs = require('fs');
 
 const Url = require('../models/Url');
 const { validateShortenInput, validateVerifyInput, fileFilter, MAX_FILE_SIZE } = require('../middleware/validate');
+const { authenticateUser } = require('../middleware/authUser');
 
 // ─── Multer Configuration ────────────────────────────────────────────
 // Files are stored with randomized names to prevent conflicts and path traversal
@@ -41,6 +42,7 @@ async function getNextSerialNumber() {
 // Create a new short URL with password, text content, label, and optional file
 router.post(
     '/api/shorten',
+    authenticateUser,
     upload.single('file'),
     validateShortenInput,
     async (req, res) => {
@@ -79,7 +81,7 @@ router.post(
 
 // ─── GET /api/search ─────────────────────────────────────────────────
 // Search for a URL by serial number (returns shortId if found, requires password next)
-router.get('/api/search', async (req, res) => {
+router.get('/api/search', authenticateUser, async (req, res) => {
     try {
         const serial = parseInt(req.query.serial, 10);
         if (!serial || isNaN(serial)) {
