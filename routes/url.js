@@ -197,5 +197,56 @@ router.get('/:shortId', async (req, res) => {
         res.status(500).json({ error: 'Internal server error.' });
     }
 });
+// ─── GET /api/qr-access/:shortId ─────────────────────────────────────
+// Direct access for authenticated users (used by in-app QR scanner).
+// Bypasses password — requires a valid Firebase ID token.
+router.get('/api/qr-access/:shortId', authenticateUser, async (req, res) => {
+    try {
+        const { shortId } = req.params;
+
+        const urlDoc = await Url.findOne({ shortId });
+        if (!urlDoc) {
+            return res.status(404).json({ error: 'Short URL not found.' });
+        }
+
+        res.json({
+            success: true,
+            textContent: urlDoc.textContent,
+            hasFile: !!urlDoc.fileName,
+            fileName: urlDoc.fileName,
+            // Generate a time-limited signed download token so the frontend
+            // can download without knowing the link password
+            downloadUrl: urlDoc.fileName ? `/api/qr-download/${shortId}` : null,
+        });
+    } catch (err) {
+        console.error('Error in QR access:', err);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+});
+
+// ─── GET /api/qr-download/:shortId ──────────────────────────────────
+// Authenticated file download (used after QR scan, no password needed)
+router.get('/api/qr-download/:shortId', authenticateUser, async (req, res) => {
+    try {
+        const { shortId } = req.params;
+
+        const urlDoc = await Url.findOne({ shortId });
+        if (!urlDoc) {
+            return res.status(404).json({ error: 'Short URL not found.' });
+        }
+
+        if (!urlDoc.filePath || !fs.existsSync(urlDoc.filePath)) {
+            return res.status(404).json({ error: 'No file attached to this URL.' });
+        }
+
+        urlDoc.downloadCount += 1;
+        await urlDoc.save();
+
+        res.download(urlDoc.filePath, urlDoc.fileName);
+    } catch (err) {
+        console.error('Error in QR download:', err);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+});
 
 module.exports = router;

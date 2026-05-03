@@ -4,11 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Access password-protected short URLs by serial number. Secure, fast, and simple.">
+    <meta name="description" content="Access password-protected short URLs by serial number or QR scan. Secure, fast, and simple.">
     <title>Fly Nexus LLP — Secure Short URL Access</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
+    <!-- QR Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         .search-row {
             display: flex;
@@ -100,6 +102,206 @@
         /* Hide content until auth state resolves */
         .app-content { display: none; }
         .app-content.ready { display: block; animation: fadeIn 0.3s ease; }
+
+        /* ─── QR Scanner Styles ──────────────────────────────────── */
+        .qr-section {
+            text-align: center;
+        }
+
+        .btn-scan {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #00b894, #00cec9);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition);
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-scan:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(0, 184, 148, 0.3);
+        }
+
+        .btn-scan.active {
+            background: linear-gradient(135deg, #e17055, #d63031);
+        }
+
+        .btn-scan.active:hover {
+            box-shadow: 0 4px 16px rgba(214, 48, 49, 0.3);
+        }
+
+        .qr-reader-container {
+            display: none;
+            margin-top: 16px;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            position: relative;
+            animation: slideIn 0.3s ease;
+        }
+
+        .qr-reader-container.active {
+            display: block;
+        }
+
+        #qr-reader {
+            width: 100%;
+            border-radius: var(--radius-sm);
+        }
+
+        /* Override html5-qrcode default styles */
+        #qr-reader video {
+            border-radius: var(--radius-sm) !important;
+        }
+
+        #qr-reader__scan_region {
+            min-height: 200px;
+        }
+
+        #qr-reader__dashboard {
+            display: none !important;
+        }
+
+        .qr-hint {
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            margin-top: 12px;
+            line-height: 1.5;
+        }
+
+        /* ─── Unlocked Content Overlay ────────────────────────── */
+        .qr-result-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 26, 0.92);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+            overflow-y: auto;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .qr-result-overlay.show {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 16px;
+        }
+
+        .qr-result-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            max-width: 520px;
+            width: 100%;
+            animation: slideIn 0.4s ease;
+        }
+
+        .qr-result-card .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .qr-result-card .result-header h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .btn-close-result {
+            padding: 6px 14px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .btn-close-result:hover {
+            border-color: var(--error);
+            color: var(--error);
+        }
+
+        .result-text-content {
+            padding: 16px;
+            background: rgba(108, 92, 231, 0.06);
+            border: 1px solid rgba(108, 92, 231, 0.15);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin-bottom: 16px;
+        }
+
+        .result-download {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(0, 184, 148, 0.06);
+            border: 1px solid rgba(0, 184, 148, 0.2);
+            border-radius: var(--radius-sm);
+        }
+
+        .result-download .file-name {
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+        }
+
+        .btn-download {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #00b894, #00cec9);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all var(--transition);
+        }
+
+        .btn-download:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 184, 148, 0.3);
+        }
+
+        .divider-or {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .divider-or::before,
+        .divider-or::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-color);
+        }
     </style>
 </head>
 
@@ -127,6 +329,20 @@
             <!-- Alert Messages -->
             <div id="alert" class="alert"></div>
 
+            <!-- ─── QR Scanner Section ──────────────────────────────── -->
+            <div class="card qr-section">
+                <h2 class="card-title">📷 Scan QR Code</h2>
+                <button class="btn-scan" id="scanToggleBtn">
+                    <span>📸</span> Open Scanner
+                </button>
+                <div class="qr-reader-container" id="qrReaderContainer">
+                    <div id="qr-reader"></div>
+                </div>
+                <p class="qr-hint">Scan a Fly Nexus short link QR code to unlock content instantly — no password needed.</p>
+            </div>
+
+            <div class="divider-or">or</div>
+
             <!-- ─── Search Section ───────────────────────────────────── -->
             <div class="card">
                 <h2 class="card-title">🔍 Find by Serial Number</h2>
@@ -139,6 +355,21 @@
             <!-- Nav -->
             <div class="nav-links">
                 <a href="/admin.html">Admin Panel →</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── QR Result Overlay ──────────────────────────────────────── -->
+    <div class="qr-result-overlay" id="qrResultOverlay">
+        <div class="qr-result-card">
+            <div class="result-header">
+                <h2>✅ Content Unlocked</h2>
+                <button class="btn-close-result" id="closeResultBtn">✕ Close</button>
+            </div>
+            <div class="result-text-content" id="resultTextContent"></div>
+            <div class="result-download" id="resultDownloadSection" style="display: none;">
+                <span class="file-name">📎 <strong id="resultFileName"></strong></span>
+                <a class="btn-download" id="resultDownloadBtn" href="#" target="_blank">⬇ Download</a>
             </div>
         </div>
     </div>
@@ -157,13 +388,14 @@
         }
 
         // ─── Auth Guard ─────────────────────────────────────────────
+        let currentUser = null;
+
         onAuthStateChanged(auth, (user) => {
             if (!user || !user.emailVerified) {
                 window.location.href = '/login.html';
                 return;
             }
-
-            // Populate user bar
+            currentUser = user;
             document.getElementById('userEmail').textContent = user.email;
             document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
             appContent.classList.add('ready');
@@ -171,11 +403,211 @@
 
         // ─── Logout ─────────────────────────────────────────────────
         document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await stopScanner();
             await signOut(auth);
             window.location.href = '/login.html';
         });
 
-        // ─── Search ─────────────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════
+        //  QR CODE SCANNER
+        // ═══════════════════════════════════════════════════════════
+        let html5QrCode = null;
+        let isScanning = false;
+
+        const scanToggleBtn = document.getElementById('scanToggleBtn');
+        const qrReaderContainer = document.getElementById('qrReaderContainer');
+
+        scanToggleBtn.addEventListener('click', () => {
+            if (isScanning) {
+                stopScanner();
+            } else {
+                startScanner();
+            }
+        });
+
+        async function startScanner() {
+            try {
+                qrReaderContainer.classList.add('active');
+                scanToggleBtn.innerHTML = '<span>⏹</span> Stop Scanner';
+                scanToggleBtn.classList.add('active');
+
+                html5QrCode = new Html5Qrcode("qr-reader");
+
+                await html5QrCode.start(
+                    { facingMode: "environment" },
+                    {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 },
+                        aspectRatio: 1,
+                    },
+                    onScanSuccess,
+                    () => {} // ignore scan errors (no code in view)
+                );
+
+                isScanning = true;
+            } catch (err) {
+                console.error('Scanner error:', err);
+                showAlert('Could not access camera. Please allow camera permissions.', 'error');
+                resetScannerUI();
+            }
+        }
+
+        async function stopScanner() {
+            if (html5QrCode && isScanning) {
+                try {
+                    await html5QrCode.stop();
+                } catch (e) {
+                    // already stopped
+                }
+            }
+            resetScannerUI();
+        }
+
+        function resetScannerUI() {
+            isScanning = false;
+            qrReaderContainer.classList.remove('active');
+            scanToggleBtn.innerHTML = '<span>📸</span> Open Scanner';
+            scanToggleBtn.classList.remove('active');
+        }
+
+        // ─── QR Scan Callback ───────────────────────────────────────
+        let isProcessing = false;
+
+        async function onScanSuccess(decodedText) {
+            if (isProcessing) return;
+            isProcessing = true;
+
+            // Extract shortId from the scanned URL
+            const shortId = extractShortId(decodedText);
+            if (!shortId) {
+                showAlert('This QR code is not a Fly Nexus short link.', 'error');
+                isProcessing = false;
+                return;
+            }
+
+            // Stop scanner while processing
+            await stopScanner();
+
+            showAlert('QR code detected! Unlocking content...', 'success');
+
+            try {
+                const token = await currentUser.getIdToken();
+
+                const res = await fetch(`/api/qr-access/${shortId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+
+                if (res.status === 401) {
+                    showAlert('Session expired. Please sign in again.', 'error');
+                    await signOut(auth);
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showAlert(data.error || 'Could not unlock content.', 'error');
+                    isProcessing = false;
+                    return;
+                }
+
+                // Show the unlocked content in the overlay
+                showQrResult(data, token);
+            } catch (err) {
+                showAlert('Network error while unlocking.', 'error');
+            }
+
+            isProcessing = false;
+        }
+
+        /**
+         * Extract the shortId from a scanned URL.
+         * Accepts URLs like:
+         *   https://example.com/abc12345
+         *   http://localhost:3200/abc12345
+         *   /abc12345
+         *   abc12345
+         */
+        function extractShortId(text) {
+            try {
+                // Try parsing as a full URL first
+                const url = new URL(text);
+                const pathParts = url.pathname.split('/').filter(Boolean);
+                if (pathParts.length === 1 && pathParts[0].length >= 4) {
+                    return pathParts[0];
+                }
+                return null;
+            } catch {
+                // Not a URL — check if it's a plain shortId (alphanumeric, 4-20 chars)
+                const clean = text.trim().replace(/^\//, '');
+                if (/^[A-Za-z0-9_-]{4,20}$/.test(clean)) {
+                    return clean;
+                }
+                return null;
+            }
+        }
+
+        // ─── Show Result Overlay ────────────────────────────────────
+        const overlay = document.getElementById('qrResultOverlay');
+        const closeBtn = document.getElementById('closeResultBtn');
+
+        function showQrResult(data, token) {
+            document.getElementById('resultTextContent').textContent = data.textContent || '(No text content)';
+
+            const downloadSection = document.getElementById('resultDownloadSection');
+            if (data.hasFile) {
+                document.getElementById('resultFileName').textContent = data.fileName;
+                const downloadBtn = document.getElementById('resultDownloadBtn');
+                // Build authenticated download URL
+                downloadBtn.href = '#';
+                downloadBtn.onclick = async (e) => {
+                    e.preventDefault();
+                    try {
+                        const freshToken = await currentUser.getIdToken();
+                        const res = await fetch(data.downloadUrl, {
+                            headers: { 'Authorization': `Bearer ${freshToken}` },
+                        });
+                        if (!res.ok) throw new Error('Download failed');
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = data.fileName;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(url);
+                    } catch (err) {
+                        showAlert('Download failed.', 'error');
+                    }
+                };
+                downloadSection.style.display = 'flex';
+            } else {
+                downloadSection.style.display = 'none';
+            }
+
+            overlay.classList.add('show');
+        }
+
+        closeBtn.addEventListener('click', () => {
+            overlay.classList.remove('show');
+        });
+
+        // Close on overlay background click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.classList.remove('show');
+        });
+
+        // Close on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay.classList.contains('show')) {
+                overlay.classList.remove('show');
+            }
+        });
+
+        // ═══════════════════════════════════════════════════════════
+        //  SERIAL NUMBER SEARCH
+        // ═══════════════════════════════════════════════════════════
         async function searchUrl() {
             const serial = document.getElementById('searchSerial').value.trim();
             if (!serial) {
@@ -188,7 +620,6 @@
             btn.disabled = true;
 
             try {
-                // Get a fresh Firebase ID token
                 const token = await auth.currentUser.getIdToken();
 
                 const res = await fetch(`/api/search?serial=${serial}`, {
