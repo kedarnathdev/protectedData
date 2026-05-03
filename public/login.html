@@ -31,7 +31,6 @@
             border: none;
             cursor: pointer;
             transition: all var(--transition);
-            position: relative;
         }
 
         .auth-tab:not(:last-child) {
@@ -66,6 +65,7 @@
             color: var(--text-muted);
             text-decoration: none;
             transition: color var(--transition);
+            cursor: pointer;
         }
 
         .forgot-link:hover {
@@ -96,7 +96,6 @@
             margin-top: 6px;
             background: var(--border-color);
             overflow: hidden;
-            transition: all var(--transition);
         }
 
         .password-strength .bar {
@@ -106,36 +105,87 @@
             transition: width 0.3s ease, background 0.3s ease;
         }
 
-        .strength-weak .bar {
-            width: 33%;
-            background: var(--error);
+        .strength-weak .bar { width: 33%; background: var(--error); }
+        .strength-medium .bar { width: 66%; background: var(--warning); }
+        .strength-strong .bar { width: 100%; background: var(--success); }
+
+        /* ─── Email Verification Banner ──────────────────────── */
+        .verify-banner {
+            display: none;
+            padding: 16px 20px;
+            background: rgba(255, 167, 38, 0.08);
+            border: 1px solid rgba(255, 167, 38, 0.25);
+            border-radius: var(--radius-sm);
+            margin-bottom: 20px;
+            animation: slideIn 0.3s ease;
         }
 
-        .strength-medium .bar {
-            width: 66%;
+        .verify-banner.show { display: block; }
+
+        .verify-banner p {
+            color: var(--warning);
+            font-size: 0.88rem;
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .verify-banner .btn-resend {
+            padding: 6px 16px;
             background: var(--warning);
-        }
-
-        .strength-strong .bar {
-            width: 100%;
-            background: var(--success);
-        }
-
-        .divider {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin: 20px 0;
-            color: var(--text-muted);
+            color: #1a1a2e;
+            border: none;
+            border-radius: 6px;
             font-size: 0.8rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition);
         }
 
-        .divider::before,
-        .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--border-color);
+        .verify-banner .btn-resend:hover { opacity: 0.85; }
+
+        /* ─── Forgot Password Section ────────────────────────── */
+        .forgot-section {
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .forgot-section.active { display: block; }
+
+        .forgot-section .info-text {
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .forgot-section .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 16px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            cursor: pointer;
+            transition: color var(--transition);
+        }
+
+        .forgot-section .back-link:hover { color: var(--accent); }
+
+        .success-msg {
+            display: none;
+            text-align: center;
+            animation: slideIn 0.3s ease;
+        }
+
+        .success-msg.show { display: block; }
+
+        .success-msg .icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+        .success-msg p {
+            color: var(--success);
+            font-size: 0.92rem;
+            line-height: 1.6;
         }
     </style>
 </head>
@@ -152,12 +202,18 @@
         <!-- Alert Messages -->
         <div id="alert" class="alert"></div>
 
+        <!-- Verification Banner (shown after register if email not verified) -->
+        <div class="verify-banner" id="verifyBanner">
+            <p>📧 A verification email has been sent. Please check your inbox (and spam folder) and verify your email to continue.</p>
+            <button class="btn-resend" id="resendBtn">Resend Verification Email</button>
+        </div>
+
         <!-- Auth Card -->
-        <div class="card" style="max-width: 440px; margin: 0 auto;">
+        <div class="card" style="max-width: 440px; margin: 0 auto;" id="authCard">
             <!-- Tabs -->
-            <div class="auth-tabs">
-                <button class="auth-tab active" id="tabLogin" onclick="switchTab('login')">Sign In</button>
-                <button class="auth-tab" id="tabRegister" onclick="switchTab('register')">Create Account</button>
+            <div class="auth-tabs" id="authTabs">
+                <button class="auth-tab active" id="tabLogin" data-tab="login">Sign In</button>
+                <button class="auth-tab" id="tabRegister" data-tab="register">Create Account</button>
             </div>
 
             <!-- ─── Login Panel ─── -->
@@ -171,10 +227,8 @@
                         <label for="loginPassword">Password</label>
                         <input type="password" id="loginPassword" name="password" placeholder="Enter your password" required>
                     </div>
-                    <a href="/forgot-password.html" class="forgot-link">Forgot password?</a>
-                    <button type="submit" class="btn btn-primary" id="loginBtn">
-                        Sign In
-                    </button>
+                    <a class="forgot-link" id="forgotLink">Forgot password?</a>
+                    <button type="submit" class="btn btn-primary" id="loginBtn">Sign In</button>
                 </form>
             </div>
 
@@ -187,8 +241,7 @@
                     </div>
                     <div class="form-group">
                         <label for="regPassword">Password</label>
-                        <input type="password" id="regPassword" name="password" placeholder="Min 6 characters" required
-                            minlength="6" oninput="checkStrength(this.value)">
+                        <input type="password" id="regPassword" name="password" placeholder="Min 6 characters" required minlength="6">
                         <div class="password-strength" id="passwordStrength">
                             <div class="bar"></div>
                         </div>
@@ -198,10 +251,28 @@
                         <input type="password" id="regConfirmPassword" name="confirmPassword"
                             placeholder="Re-enter your password" required>
                     </div>
-                    <button type="submit" class="btn btn-primary" id="registerBtn">
-                        Create Account
-                    </button>
+                    <button type="submit" class="btn btn-primary" id="registerBtn">Create Account</button>
                 </form>
+            </div>
+
+            <!-- ─── Forgot Password Section ─── -->
+            <div class="forgot-section" id="forgotSection">
+                <h2 class="card-title">🔑 Reset Your Password</h2>
+                <p class="info-text">
+                    Enter the email address associated with your account. Firebase will send you a link to reset your password.
+                </p>
+                <form id="forgotForm">
+                    <div class="form-group">
+                        <label for="forgotEmail">Email Address</label>
+                        <input type="email" id="forgotEmail" name="email" placeholder="you@example.com" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="forgotBtn">Send Reset Link</button>
+                </form>
+                <div class="success-msg" id="forgotSuccess">
+                    <div class="icon">📧</div>
+                    <p>Password reset link sent!<br>Check your inbox and spam folder.</p>
+                </div>
+                <a class="back-link" id="backToLogin">← Back to Sign In</a>
             </div>
         </div>
 
@@ -211,80 +282,130 @@
         </div>
     </div>
 
-    <script>
-        const alertEl = document.getElementById('alert');
+    <script type="module">
+        import { auth } from '/js/firebase-config.js';
+        import {
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            sendEmailVerification,
+            sendPasswordResetEmail,
+            onAuthStateChanged,
+        } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
+        // ─── DOM Elements ───────────────────────────────────────────
+        const alertEl = document.getElementById('alert');
+        const authTabs = document.getElementById('authTabs');
+        const loginPanel = document.getElementById('loginPanel');
+        const registerPanel = document.getElementById('registerPanel');
+        const forgotSection = document.getElementById('forgotSection');
+        const verifyBanner = document.getElementById('verifyBanner');
+
+        // ─── Helpers ────────────────────────────────────────────────
         function showAlert(message, type) {
             alertEl.textContent = message;
             alertEl.className = `alert alert-${type} show`;
-            setTimeout(() => alertEl.classList.remove('show'), 5000);
+            setTimeout(() => alertEl.classList.remove('show'), 6000);
         }
 
-        // ─── Check if already logged in ─────────────────────────────
-        (function () {
-            const token = localStorage.getItem('userToken');
-            if (token) {
+        function setLoading(btn, loading, text) {
+            if (loading) {
+                btn.innerHTML = `<span class="spinner"></span> ${text}`;
+                btn.disabled = true;
+            } else {
+                btn.innerHTML = text;
+                btn.disabled = false;
+            }
+        }
+
+        function mapFirebaseError(code) {
+            const map = {
+                'auth/email-already-in-use': 'An account with this email already exists.',
+                'auth/invalid-email': 'Please enter a valid email address.',
+                'auth/weak-password': 'Password is too weak. Use at least 6 characters.',
+                'auth/user-not-found': 'No account found with this email.',
+                'auth/wrong-password': 'Incorrect password.',
+                'auth/invalid-credential': 'Invalid email or password.',
+                'auth/too-many-requests': 'Too many attempts. Please try again later.',
+                'auth/user-disabled': 'This account has been disabled.',
+                'auth/network-request-failed': 'Network error. Please check your connection.',
+            };
+            return map[code] || 'An error occurred. Please try again.';
+        }
+
+        // ─── Auth State Listener ────────────────────────────────────
+        onAuthStateChanged(auth, (user) => {
+            if (user && user.emailVerified) {
                 window.location.href = '/home.html';
             }
-        })();
+        });
 
         // ─── Tab Switching ──────────────────────────────────────────
+        authTabs.addEventListener('click', (e) => {
+            const tab = e.target.dataset?.tab;
+            if (!tab) return;
+            switchTab(tab);
+        });
+
         function switchTab(tab) {
             document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
             document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
-            document.getElementById('loginPanel').classList.toggle('active', tab === 'login');
-            document.getElementById('registerPanel').classList.toggle('active', tab === 'register');
+            loginPanel.classList.toggle('active', tab === 'login');
+            registerPanel.classList.toggle('active', tab === 'register');
+            forgotSection.classList.remove('active');
+            authTabs.style.display = '';
         }
+
+        // ─── Forgot Password Toggle ─────────────────────────────────
+        document.getElementById('forgotLink').addEventListener('click', () => {
+            loginPanel.classList.remove('active');
+            registerPanel.classList.remove('active');
+            forgotSection.classList.add('active');
+            authTabs.style.display = 'none';
+            document.getElementById('forgotForm').style.display = '';
+            document.getElementById('forgotSuccess').classList.remove('show');
+        });
+
+        document.getElementById('backToLogin').addEventListener('click', () => {
+            switchTab('login');
+        });
 
         // ─── Password Strength ──────────────────────────────────────
-        function checkStrength(value) {
+        document.getElementById('regPassword').addEventListener('input', (e) => {
             const el = document.getElementById('passwordStrength');
+            const value = e.target.value;
             el.className = 'password-strength';
-
             if (value.length === 0) return;
-            if (value.length < 6) {
-                el.classList.add('strength-weak');
-            } else if (value.length < 10 || !/[A-Z]/.test(value) || !/[0-9]/.test(value)) {
-                el.classList.add('strength-medium');
-            } else {
-                el.classList.add('strength-strong');
-            }
-        }
+            if (value.length < 6) el.classList.add('strength-weak');
+            else if (value.length < 10 || !/[A-Z]/.test(value) || !/[0-9]/.test(value)) el.classList.add('strength-medium');
+            else el.classList.add('strength-strong');
+        });
 
         // ─── Login ──────────────────────────────────────────────────
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const email = document.getElementById('loginEmail').value.trim();
-            const password = document.getElementById('loginPassword').value.trim();
+            const password = document.getElementById('loginPassword').value;
             const btn = document.getElementById('loginBtn');
 
-            btn.innerHTML = '<span class="spinner"></span> Signing in...';
-            btn.disabled = true;
+            setLoading(btn, true, 'Signing in...');
 
             try {
-                const res = await fetch('/api/user/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password }),
-                });
+                const cred = await signInWithEmailAndPassword(auth, email, password);
 
-                const data = await res.json();
-
-                if (!res.ok) {
-                    showAlert(data.error || 'Login failed.', 'error');
+                if (!cred.user.emailVerified) {
+                    // Show verification banner
+                    verifyBanner.classList.add('show');
+                    showAlert('Please verify your email before signing in.', 'error');
+                    setLoading(btn, false, 'Sign In');
                     return;
                 }
 
-                localStorage.setItem('userToken', data.token);
-                localStorage.setItem('userEmail', data.email);
                 showAlert('Login successful! Redirecting...', 'success');
-                setTimeout(() => window.location.href = '/home.html', 500);
+                // onAuthStateChanged will handle redirect
             } catch (err) {
-                showAlert('Network error. Please try again.', 'error');
-            } finally {
-                btn.innerHTML = 'Sign In';
-                btn.disabled = false;
+                showAlert(mapFirebaseError(err.code), 'error');
+                setLoading(btn, false, 'Sign In');
             }
         });
 
@@ -293,46 +414,68 @@
             e.preventDefault();
 
             const email = document.getElementById('regEmail').value.trim();
-            const password = document.getElementById('regPassword').value.trim();
-            const confirmPassword = document.getElementById('regConfirmPassword').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const confirm = document.getElementById('regConfirmPassword').value;
             const btn = document.getElementById('registerBtn');
 
-            if (password !== confirmPassword) {
+            if (password !== confirm) {
                 showAlert('Passwords do not match.', 'error');
                 return;
             }
 
-            if (password.length < 6) {
-                showAlert('Password must be at least 6 characters.', 'error');
-                return;
-            }
+            setLoading(btn, true, 'Creating account...');
 
-            btn.innerHTML = '<span class="spinner"></span> Creating account...';
+            try {
+                const cred = await createUserWithEmailAndPassword(auth, email, password);
+                await sendEmailVerification(cred.user);
+
+                verifyBanner.classList.add('show');
+                showAlert('Account created! Please check your email to verify.', 'success');
+                setLoading(btn, false, 'Create Account');
+            } catch (err) {
+                showAlert(mapFirebaseError(err.code), 'error');
+                setLoading(btn, false, 'Create Account');
+            }
+        });
+
+        // ─── Resend Verification Email ──────────────────────────────
+        document.getElementById('resendBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('resendBtn');
+            btn.textContent = 'Sending...';
             btn.disabled = true;
 
             try {
-                const res = await fetch('/api/user/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password }),
-                });
-
-                const data = await res.json();
-
-                if (!res.ok) {
-                    showAlert(data.error || 'Registration failed.', 'error');
-                    return;
+                if (auth.currentUser) {
+                    await sendEmailVerification(auth.currentUser);
+                    showAlert('Verification email resent!', 'success');
+                } else {
+                    showAlert('Please log in first to resend the verification email.', 'error');
                 }
-
-                localStorage.setItem('userToken', data.token);
-                localStorage.setItem('userEmail', data.email);
-                showAlert('Account created! Redirecting...', 'success');
-                setTimeout(() => window.location.href = '/home.html', 500);
             } catch (err) {
-                showAlert('Network error. Please try again.', 'error');
+                showAlert(mapFirebaseError(err.code), 'error');
             } finally {
-                btn.innerHTML = 'Create Account';
+                btn.textContent = 'Resend Verification Email';
                 btn.disabled = false;
+            }
+        });
+
+        // ─── Forgot Password ────────────────────────────────────────
+        document.getElementById('forgotForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('forgotEmail').value.trim();
+            const btn = document.getElementById('forgotBtn');
+
+            setLoading(btn, true, 'Sending...');
+
+            try {
+                await sendPasswordResetEmail(auth, email);
+                document.getElementById('forgotForm').style.display = 'none';
+                document.getElementById('forgotSuccess').classList.add('show');
+            } catch (err) {
+                // Don't reveal if email exists — always show success
+                document.getElementById('forgotForm').style.display = 'none';
+                document.getElementById('forgotSuccess').classList.add('show');
             }
         });
     </script>

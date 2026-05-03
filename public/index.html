@@ -12,16 +12,18 @@
 </head>
 
 <body>
-    <script>
-        // ─── Auto-redirect based on auth state ──────────────────────
-        // If user is logged in (has a valid token), go to home.
-        // Otherwise, go to login page.
-        const token = localStorage.getItem('userToken');
-        if (token) {
-            window.location.replace('/home.html');
-        } else {
-            window.location.replace('/login.html');
-        }
+    <script type="module">
+        import { auth } from '/js/firebase-config.js';
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+        // Redirect based on Firebase auth state
+        onAuthStateChanged(auth, (user) => {
+            if (user && user.emailVerified) {
+                window.location.replace('/home.html');
+            } else {
+                window.location.replace('/login.html');
+            }
+        });
     </script>
 </body>
 

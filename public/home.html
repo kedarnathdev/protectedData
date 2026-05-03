@@ -58,7 +58,7 @@
             font-size: 0.88rem;
         }
 
-        .user-bar .user-info .user-avatar {
+        .user-bar .user-avatar {
             width: 28px;
             height: 28px;
             border-radius: 50%;
@@ -96,6 +96,10 @@
             color: var(--error);
             background: rgba(255, 107, 107, 0.06);
         }
+
+        /* Hide content until auth state resolves */
+        .app-content { display: none; }
+        .app-content.ready { display: block; animation: fadeIn 0.3s ease; }
     </style>
 </head>
 
@@ -108,35 +112,43 @@
             <p class="subtitle">Access password-protected content securely</p>
         </div>
 
-        <!-- User Bar -->
-        <div class="user-bar" id="userBar">
-            <div class="user-info">
-                <div class="user-avatar" id="userAvatar"></div>
-                <span class="user-email" id="userEmail"></span>
+        <!-- App content (hidden until Firebase auth resolves) -->
+        <div class="app-content" id="appContent">
+
+            <!-- User Bar -->
+            <div class="user-bar">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar"></div>
+                    <span class="user-email" id="userEmail"></span>
+                </div>
+                <button class="btn-logout" id="logoutBtn">Sign Out</button>
             </div>
-            <button class="btn-logout" onclick="logout()">Sign Out</button>
-        </div>
 
-        <!-- Alert Messages -->
-        <div id="alert" class="alert"></div>
+            <!-- Alert Messages -->
+            <div id="alert" class="alert"></div>
 
-        <!-- ─── Search Section ───────────────────────────────────── -->
-        <div class="card">
-            <h2 class="card-title">🔍 Find by Serial Number</h2>
-            <div class="search-row">
-                <input type="number" id="searchSerial" placeholder="Enter serial number (e.g., 1001)" min="1">
-                <button class="btn btn-primary" style="width:auto;" id="searchBtn" onclick="searchUrl()">Go →</button>
+            <!-- ─── Search Section ───────────────────────────────────── -->
+            <div class="card">
+                <h2 class="card-title">🔍 Find by Serial Number</h2>
+                <div class="search-row">
+                    <input type="number" id="searchSerial" placeholder="Enter serial number (e.g., 1001)" min="1">
+                    <button class="btn btn-primary" style="width:auto;" id="searchBtn">Go →</button>
+                </div>
             </div>
-        </div>
 
-        <!-- Nav -->
-        <div class="nav-links">
-            <a href="/admin.html">Admin Panel →</a>
+            <!-- Nav -->
+            <div class="nav-links">
+                <a href="/admin.html">Admin Panel →</a>
+            </div>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import { auth } from '/js/firebase-config.js';
+        import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
         const alertEl = document.getElementById('alert');
+        const appContent = document.getElementById('appContent');
 
         function showAlert(message, type) {
             alertEl.textContent = message;
@@ -145,32 +157,27 @@
         }
 
         // ─── Auth Guard ─────────────────────────────────────────────
-        function getToken() {
-            return localStorage.getItem('userToken');
-        }
-
-        (function () {
-            const token = getToken();
-            if (!token) {
+        onAuthStateChanged(auth, (user) => {
+            if (!user || !user.emailVerified) {
                 window.location.href = '/login.html';
                 return;
             }
 
-            const email = localStorage.getItem('userEmail') || 'User';
-            document.getElementById('userEmail').textContent = email;
-            document.getElementById('userAvatar').textContent = email.charAt(0).toUpperCase();
-        })();
+            // Populate user bar
+            document.getElementById('userEmail').textContent = user.email;
+            document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
+            appContent.classList.add('ready');
+        });
 
-        function logout() {
-            localStorage.removeItem('userToken');
-            localStorage.removeItem('userEmail');
+        // ─── Logout ─────────────────────────────────────────────────
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await signOut(auth);
             window.location.href = '/login.html';
-        }
+        });
 
-        // ─── Search — direct redirect ───────────────────────────────
+        // ─── Search ─────────────────────────────────────────────────
         async function searchUrl() {
             const serial = document.getElementById('searchSerial').value.trim();
-
             if (!serial) {
                 showAlert('Please enter a serial number.', 'error');
                 return;
@@ -181,16 +188,16 @@
             btn.disabled = true;
 
             try {
-                const token = getToken();
+                // Get a fresh Firebase ID token
+                const token = await auth.currentUser.getIdToken();
+
                 const res = await fetch(`/api/search?serial=${serial}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
+                    headers: { 'Authorization': `Bearer ${token}` },
                 });
 
                 if (res.status === 401) {
-                    showAlert('Session expired. Please log in again.', 'error');
-                    setTimeout(() => logout(), 1500);
+                    showAlert('Session expired. Please sign in again.', 'error');
+                    await signOut(auth);
                     return;
                 }
 
@@ -201,7 +208,6 @@
                     return;
                 }
 
-                // Redirect directly to the short URL (password prompt is on that page)
                 window.location.href = `/${data.shortId}`;
             } catch (err) {
                 showAlert('Network error.', 'error');
@@ -211,7 +217,7 @@
             }
         }
 
-        // Enter key in search field
+        document.getElementById('searchBtn').addEventListener('click', searchUrl);
         document.getElementById('searchSerial').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { e.preventDefault(); searchUrl(); }
         });
